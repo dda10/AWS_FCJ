@@ -3,16 +3,17 @@ include:
   - template: Jobs/SAST-IaC.gitlab-ci.yml
 
 variables:
-  TF_ROOT: ${CI_PROJECT_DIR}/lab1/iac/terraform
+  TF_ROOT: ${CI_PROJECT_DIR}/lab1/iac/terraform/vpg
   TF_ADDRESS: ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/terraform/state/${CI_ENVIRONMENT_NAME}
 
 stages:
   - validate
   - test
-  - build
+  - plan
   - approve
-  - deploy
-  - cleanup
+  - apply
+  - approve-destroy
+  - destroy
 
 fmt:
   extends: .terraform:fmt
@@ -31,9 +32,9 @@ validate:
     - terraform init
     - terraform validate
 
-build:
-  extends: .terraform:build
-  stage: build
+plan:
+  extends: .terraform:plan
+  stage: plan
   script:
     - cd ${TF_ROOT}
     - terraform init
@@ -41,7 +42,7 @@ build:
   artifacts:
     paths:
       - ${TF_ROOT}/plan.tfplan
-    expire_in: 1 week
+    expire_in: 1 day
   environment:
     name: $TF_STATE_NAME
     action: prepare
@@ -56,17 +57,17 @@ approve:
     - when: never
   allow_failure: false
 
-deploy:
-  extends: .terraform:deploy
-  stage: deploy
+apply:
+  extends: .terraform:apply
+  stage: apply
   script:
     - cd ${TF_ROOT}
     - terraform init
     - terraform apply -auto-approve plan.tfplan
   dependencies:
-    - build
+    - plan
   needs:
-    - build
+    - plan
     - approve
   environment:
     name: $TF_STATE_NAME
@@ -76,9 +77,19 @@ deploy:
       when: on_success
     - when: never
 
-cleanup:
+approve-destroy:
+  stage: approve-destroy
+  script:
+    - echo "Waiting for destroy approval..."
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+    - when: never
+  allow_failure: false
+
+destroy:
   extends: .terraform:destroy
-  stage: cleanup
+  stage: destroy
   script:
     - cd ${TF_ROOT}
     - terraform init
@@ -86,7 +97,9 @@ cleanup:
   environment:
     name: $TF_STATE_NAME
     action: stop
+  needs:
+    - approve-destroy
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-      when: manual
+      when: on_success
     - when: never
