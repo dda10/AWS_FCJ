@@ -33,7 +33,7 @@ validate:
     - terraform validate
 
 plan:
-  extends: .terraform:plan
+  extends: .terraform:build
   stage: plan
   script:
     - cd ${TF_ROOT}
@@ -58,7 +58,7 @@ approve:
   allow_failure: false
 
 apply:
-  extends: .terraform:apply
+  extends: .terraform:deploy
   stage: apply
   script:
     - cd ${TF_ROOT}
