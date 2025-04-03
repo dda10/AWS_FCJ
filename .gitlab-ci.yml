@@ -1,38 +1,92 @@
-# This file is a template, and might need editing before it works on your project.
-# To contribute improvements to CI/CD templates, please follow the Development guide at:
-# https://docs.gitlab.com/development/cicd/templates/
-# This specific template is located at:
-# https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Terraform.gitlab-ci.yml
-
 include:
-  - template: Terraform/Base.gitlab-ci.yml  # https://gitlab.com/gitlab-org/gitlab/blob/master/lib/gitlab/ci/templates/Terraform/Base.gitlab-ci.yml
-  - template: Jobs/SAST-IaC.gitlab-ci.yml   # https://gitlab.com/gitlab-org/gitlab/blob/master/lib/gitlab/ci/templates/Jobs/SAST-IaC.gitlab-ci.yml
+  - template: Terraform/Base.gitlab-ci.yml
+  - template: Jobs/SAST-IaC.gitlab-ci.yml
+
+variables:
+  TF_ROOT: ${CI_PROJECT_DIR}/lab1/iac/terraform
+  TF_ADDRESS: ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/terraform/state/${CI_ENVIRONMENT_NAME}
 
 stages:
   - validate
   - test
   - build
+  - approve
   - deploy
   - cleanup
 
 fmt:
   extends: .terraform:fmt
   needs: []
+  stage: validate
+  script:
+    - cd ${TF_ROOT}
+    - terraform fmt -check -recursive
 
 validate:
   extends: .terraform:validate
   needs: []
+  stage: validate
+  script:
+    - cd ${TF_ROOT}
+    - terraform init
+    - terraform validate
 
 build:
   extends: .terraform:build
+  stage: build
+  script:
+    - cd ${TF_ROOT}
+    - terraform init
+    - terraform plan -out=plan.tfplan
+  artifacts:
+    paths:
+      - ${TF_ROOT}/plan.tfplan
+    expire_in: 1 week
   environment:
     name: $TF_STATE_NAME
     action: prepare
 
+approve:
+  stage: approve
+  script:
+    - echo "Waiting for approval..."
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+    - when: never
+  allow_failure: false
+
 deploy:
   extends: .terraform:deploy
+  stage: deploy
+  script:
+    - cd ${TF_ROOT}
+    - terraform init
+    - terraform apply -auto-approve plan.tfplan
   dependencies:
     - build
+  needs:
+    - build
+    - approve
   environment:
     name: $TF_STATE_NAME
     action: start
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: on_success
+    - when: never
+
+cleanup:
+  extends: .terraform:destroy
+  stage: cleanup
+  script:
+    - cd ${TF_ROOT}
+    - terraform init
+    - terraform destroy -auto-approve
+  environment:
+    name: $TF_STATE_NAME
+    action: stop
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+    - when: never
