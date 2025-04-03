@@ -1,7 +1,7 @@
-output "public_route_table_name" {
-  value = module.vpc.public_route_table_name
+output "public_ec2" {
+  value = aws_instance.web.public_ip
 }
 
-output "private_route_table_name" {
-  value = module.vpc.private_route_table_name
+output "customer_gateway_ec2" {
+  value = aws_instance.cgw_instance.public_ip
 }

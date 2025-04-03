@@ -9,3 +9,6 @@ vpn_vpc_name = "ASG VPN"
 # vpn_cidr_subnets_private = ["10.250.192.0/20", "10.250.208.0/20"]
 vpn_cidr_subnets_public = ["10.11.1.0/24"]
 
+default_tags = {
+  "owner" = "tf-user"
+} 

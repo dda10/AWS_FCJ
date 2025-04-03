@@ -203,9 +203,13 @@ resource "aws_instance" "cgw_instance" {
 
               # Configure system for IPsec/VPN
               echo "net.ipv4.ip_forward = 1" >> /etc/sysctl.conf
-              echo "net.ipv4.conf.all.accept_redirects = 0" >> /etc/sysctl.conf
-              echo "net.ipv4.conf.all.send_redirects = 0" >> /etc/sysctl.conf
+              echo "net.ipv4.conf.default.rp_filter = 0" >> /etc/sysctl.conf
+              echo "net.ipv4.conf.default.accept_source_route = 0" >> /etc/sysctl.conf
               sysctl -p
+
+              # Create vpn config
+              touch /etc/ipsec.d/aws.conf
+              touch /etc/ipsec.d/aws.secrets
 
               # Start and enable IPsec service
               systemctl start ipsec
@@ -224,16 +228,6 @@ resource "aws_vpn_gateway" "vpn_gw" {
     Name = "VPN Gateway"
   }
 }
-
-# Add Elastic IP for CGW instance
-# resource "aws_eip" "cgw_eip" {
-#   instance = aws_instance.cgw_instance.id
-#   domain   = "vpc"
-
-#   tags = {
-#     Name = "CGW Instance EIP"
-#   }
-# }
 
 # Create Customer Gateway
 resource "aws_customer_gateway" "main" {
