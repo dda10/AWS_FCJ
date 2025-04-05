@@ -11,7 +11,7 @@ module "vpc" {
   public_subnets  = var.cidr_subnets_public
 
   public_subnet_names  = ["Public Subnet 1", "Public Subnet 2"]
-  private_subnet_names = ["Private Subnet 1", "Private Subnet 1"]
+  private_subnet_names = ["Private Subnet 1", "Private Subnet 2"]
 
   propagate_private_route_tables_vgw = true
   propagate_public_route_tables_vgw  = true
