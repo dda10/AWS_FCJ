@@ -14,7 +14,7 @@ sed -i 's/leftsubnet=.*/leftsubnet=10.11.0.0\/16/g; s/rightsubnet=.*/rightsubnet
 - Remove cấu hình `auth=esp`
 
 ```sh
-sed -i 's/*auth=esp//g' /etc/ipsec.d/aws.conf
+sed -i 's/auth=esp//g' /etc/ipsec.d/aws.conf
 ```
 
 - Sửa cấu hình phase2alg và ike
