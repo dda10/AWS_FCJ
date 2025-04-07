@@ -13,14 +13,8 @@ module "vpc" {
   public_subnet_names  = ["Public Subnet 1", "Public Subnet 2"]
   private_subnet_names = ["Private Subnet 1", "Private Subnet 2"]
 
-  propagate_private_route_tables_vgw = true
-  propagate_public_route_tables_vgw  = true
-
-
   enable_dns_hostnames = true
   enable_dns_support   = true
-  #enable_nat_gateway   = true
-  #enable_vpn_gateway   = true
 
   # Tags
   tags = var.default_tags
@@ -34,11 +28,6 @@ module "vpc" {
   private_route_table_tags = {
     "Name" : "Route table-Private"
   }
-
-  vpn_gateway_tags = {
-    "Name" = "VPN Gateway"
-  }
-
 }
 
 module "vpc_vpn" {
@@ -221,18 +210,40 @@ resource "aws_instance" "cgw_instance" {
   }))
 }
 
-resource "aws_vpn_gateway" "vpn_gw" {
-  vpc_id = module.vpc.vpc_id
+# Create Transit Gateway
+resource "aws_ec2_transit_gateway" "main" {
+  description = "Transit Gateway ASG"
+  
+  tags = {
+    Name = "Transit Gateway ASG"
+  }
+}
+
+# Create Transit Gateway VPC Attachment
+resource "aws_ec2_transit_gateway_vpc_attachment" "main" {
+  subnet_ids         = module.vpc.private_subnet_ids
+  transit_gateway_id = aws_ec2_transit_gateway.main.id
+  vpc_id            = module.vpc.vpc_id
 
   tags = {
-    Name = "VPN Gateway"
+    Name = "VPC Attachment ASG"
+  }
+}
+
+# Create Transit Gateway VPC Attachment for VPN VPC
+resource "aws_ec2_transit_gateway_vpc_attachment" "vpn" {
+  subnet_ids         = module.vpc_vpn.public_subnet_ids
+  transit_gateway_id = aws_ec2_transit_gateway.main.id
+  vpc_id            = module.vpc_vpn.vpc_id
+
+  tags = {
+    Name = "VPC Attachment ASG VPN"
   }
 }
 
 # Create Customer Gateway
 resource "aws_customer_gateway" "main" {
   bgp_asn = 65000 # BGP ASN for your on-premises network
-  #ip_address = aws_eip.cgw_eip.public_ip
   ip_address = aws_instance.cgw_instance.public_ip
   type       = "ipsec.1"
 
@@ -244,9 +255,9 @@ resource "aws_customer_gateway" "main" {
 # Create VPN Connection
 resource "aws_vpn_connection" "main" {
   customer_gateway_id = aws_customer_gateway.main.id
-  vpn_gateway_id      = aws_vpn_gateway.vpn_gw.id # Reference to your VPN Gateway
+  transit_gateway_id  = aws_ec2_transit_gateway.main.id
   type                = "ipsec.1"
-  static_routes_only  = true # Set to false if using BGP
+  static_routes_only  = true
 
   tags = {
     Name = "VPN Connection"
@@ -259,13 +270,46 @@ resource "aws_vpn_connection_route" "example" {
   vpn_connection_id      = aws_vpn_connection.main.id
 }
 
-resource "aws_vpn_gateway_route_propagation" "public" {
-  vpn_gateway_id = aws_vpn_gateway.vpn_gw.id
-  route_table_id = module.vpc.public_route_table_ids[0]
+# Create Transit Gateway Route Table
+resource "aws_ec2_transit_gateway_route_table" "main" {
+  transit_gateway_id = aws_ec2_transit_gateway.main.id
+
+  tags = {
+    Name = "Main TGW Route Table"
+  }
 }
 
-# Enable route propagation for private route tables
-resource "aws_vpn_gateway_route_propagation" "private" {
-  vpn_gateway_id = aws_vpn_gateway.vpn_gw.id
-  route_table_id = module.vpc.private_route_table_ids[0]
+# Add route to VPN in Transit Gateway Route Table
+resource "aws_ec2_transit_gateway_route" "vpn" {
+  destination_cidr_block         = module.vpc_vpn.vpc_cidr_block
+  blackhole                      = false
+  transit_gateway_route_table_id = aws_ec2_transit_gateway_route_table.main.id
+  transit_gateway_attachment_id  = aws_vpn_connection.main.transit_gateway_attachment_id
+  
+}
+
+# Add route to VPC in Transit Gateway Route Table
+resource "aws_ec2_transit_gateway_route" "vpc" {
+  destination_cidr_block         = module.vpc.vpc_cidr_block
+  blackhole                      = false
+  transit_gateway_route_table_id = aws_ec2_transit_gateway_route_table.main.id
+  transit_gateway_attachment_id  = aws_ec2_transit_gateway_vpc_attachment.main.id
+}
+
+# Associate VPC attachment with route table
+resource "aws_ec2_transit_gateway_route_table_association" "main" {
+  transit_gateway_attachment_id  = aws_ec2_transit_gateway_vpc_attachment.main.id
+  transit_gateway_route_table_id = aws_ec2_transit_gateway_route_table.main.id
+}
+
+# Associate VPN VPC attachment with route table
+resource "aws_ec2_transit_gateway_route_table_association" "vpn" {
+  transit_gateway_attachment_id  = aws_ec2_transit_gateway_vpc_attachment.vpn.id
+  transit_gateway_route_table_id = aws_ec2_transit_gateway_route_table.main.id
+}
+
+# Associate VPN connection with route table
+resource "aws_ec2_transit_gateway_route_table_association" "vpn_connection" {
+  transit_gateway_attachment_id  = aws_vpn_connection.main.transit_gateway_attachment_id
+  transit_gateway_route_table_id = aws_ec2_transit_gateway_route_table.main.id
 }
