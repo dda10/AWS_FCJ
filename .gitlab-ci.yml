@@ -10,10 +10,10 @@ stages:
   - validate
   - test
   - plan
-  - approve
-  - apply
-  - approve-destroy
-  - destroy
+  # - approve
+  # - apply
+  # - approve-destroy
+  # - destroy
 
 fmt:
   extends: .terraform:fmt
@@ -46,60 +46,59 @@ plan:
   environment:
     name: $TF_STATE_NAME
     action: prepare
+# approve:
+#   stage: approve
+#   script:
+#     - echo "Waiting for approval..."
+#   rules:
+#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+#       when: manual
+#     - when: never
+#   allow_failure: false
 
-approve:
-  stage: approve
-  script:
-    - echo "Waiting for approval..."
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-      when: manual
-    - when: never
-  allow_failure: false
+# apply:
+#   extends: .terraform:deploy
+#   stage: apply
+#   script:
+#     - cd ${TF_ROOT}
+#     - terraform init
+#     - terraform apply -auto-approve plan.tfplan
+#   dependencies:
+#     - plan
+#   needs:
+#     - plan
+#     - approve
+#   environment:
+#     name: $TF_STATE_NAME
+#     action: start
+#   rules:
+#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+#       when: on_success
+#     - when: never
 
-apply:
-  extends: .terraform:deploy
-  stage: apply
-  script:
-    - cd ${TF_ROOT}
-    - terraform init
-    - terraform apply -auto-approve plan.tfplan
-  dependencies:
-    - plan
-  needs:
-    - plan
-    - approve
-  environment:
-    name: $TF_STATE_NAME
-    action: start
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-      when: on_success
-    - when: never
+# approve-destroy:
+#   stage: approve-destroy
+#   script:
+#     - echo "Waiting for destroy approval..."
+#   rules:
+#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+#       when: manual
+#     - when: never
+#   allow_failure: false
 
-approve-destroy:
-  stage: approve-destroy
-  script:
-    - echo "Waiting for destroy approval..."
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-      when: manual
-    - when: never
-  allow_failure: false
-
-destroy:
-  extends: .terraform:destroy
-  stage: destroy
-  script:
-    - cd ${TF_ROOT}
-    - terraform init
-    - terraform destroy -auto-approve
-  environment:
-    name: $TF_STATE_NAME
-    action: stop
-  needs:
-    - approve-destroy
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-      when: on_success
-    - when: never
+# destroy:
+#   extends: .terraform:destroy
+#   stage: destroy
+#   script:
+#     - cd ${TF_ROOT}
+#     - terraform init
+#     - terraform destroy -auto-approve
+#   environment:
+#     name: $TF_STATE_NAME
+#     action: stop
+#   needs:
+#     - approve-destroy
+#   rules:
+#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+#       when: on_success
+#     - when: never
