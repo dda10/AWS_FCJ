@@ -1,10 +1,8 @@
 [VPN Site-to-site Connection](https://000003.awsstudygroup.com/)
 
-![Using ](img/1.png)
+> Cấu hình chung cho Customer Gateway Instance
 
-1. Lab1: VPN sử dụng Virtual Private Gateway
-
-- Copy cấu hình dc download xuống,thay 2 dòng sau thành CIDR cuả VPC và VPN VPC
+- Lấy cấu hình dc download xuống,thay 2 dòng sau thành CIDR cuả VPC và VPN VPC
 
 ```sh
 sed -i 's/leftsubnet=.*/leftsubnet=10.11.0.0\/16/g; s/rightsubnet=.*/rightsubnet=10.10.0.0\/16/g' /etc/ipsec.d/aws.conf
@@ -48,4 +46,12 @@ ipsec status
 
 ![Public Instance](img/5.png)
 
+![Using Virtual Private Gateway](img/2.png)
+
+1. Lab1: VPN sử dụng Virtual Private Gateway
+
+![Using Virtual Private Gateway](img/1.png)
+
 2. Lab2: Sử dụng Transit Gateway
+
+![Using Virtual Private Gateway](img/6.png)
