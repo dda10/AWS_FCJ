@@ -54,3 +54,15 @@ variable "instance_type" {
   type        = string
   default     = "t2.micro"
 }
+
+variable "ex" {
+  type = map(any)
+  default = {
+    "prod" = "prod"
+    "dev"  = "dev"
+  }
+}
+
+variable "245" {
+
+}
